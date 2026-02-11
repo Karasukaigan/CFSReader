@@ -1,0 +1,12 @@
+__pycache__
+.vscode
+/test
+setup.iss
+/build
+/dist
+/output
+main.spec
+/venv
+/comics
+/cfs
+.env
