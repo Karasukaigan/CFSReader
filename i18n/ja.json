@@ -47,5 +47,10 @@
     "Your donation helps cover development time, feature improvements, and maintenance costs.": "ご寄付は開発時間の確保、機能改善、日常的な保守費用などのサポートに充てられます。",
     "Ethereum (ETH)": "イーサリアム（ETH）",
     "Bitcoin (BTC)": "ビットコイン（BTC）",
-    "Every contribution, no matter the amount, is greatly appreciated. Thank you for supporting open-source!": "金額にかかわらず、すべてのご支援に心より感謝いたします。オープンソースへのご支援ありがとうございます！"
+    "Every contribution, no matter the amount, is greatly appreciated. Thank you for supporting open-source!": "金額にかかわらず、すべてのご支援に心より感謝いたします。オープンソースへのご支援ありがとうございます！",
+    "S": "遅",
+    "M": "中",
+    "F": "速",
+    "T": "上",
+    "B": "下"
 }

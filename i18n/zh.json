@@ -47,5 +47,10 @@
     "Your donation helps cover development time, feature improvements, and maintenance costs.": "您的捐赠将用于支持开发投入、功能改进、日常维护等相关费用。",
     "Ethereum (ETH)": "以太坊（ETH）",
     "Bitcoin (BTC)": "比特币（BTC）",
-    "Every contribution, no matter the amount, is greatly appreciated. Thank you for supporting open-source!": "每一份支持，无论金额多少，都弥足珍贵。感谢您对开源项目的支持！"
+    "Every contribution, no matter the amount, is greatly appreciated. Thank you for supporting open-source!": "每一份支持，无论金额多少，都弥足珍贵。感谢您对开源项目的支持！",
+    "S": "慢",
+    "M": "中",
+    "F": "快",
+    "T": "上",
+    "B": "下"
 }

@@ -20,10 +20,11 @@ class ComicReader(QMainWindow):
         super().__init__()
         
         self.load_environment()  # Load environment variables
+        self.expert_mode = str(get_key(".env", "EXPERT_MODE") or False).lower() in ('true', '1', 'yes', 'on')
 
         self.i18n = I18nManager()  # i18n
 
-        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.0")
+        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.1")
         self.setGeometry(100, 100, 1000, 600)
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "img", "logo.png")
         if os.path.exists(icon_path):
@@ -81,6 +82,8 @@ class ComicReader(QMainWindow):
             set_key(env_path, "COMICS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "comics"))
         if not get_key(env_path, 'SORT_ORDER'):
             set_key(env_path, "SORT_ORDER", "name")
+        if not get_key(env_path, 'EXPERT_MODE'):
+            set_key(env_path, "EXPERT_MODE", "false")
 
     def get_comics_directory(self):
         """Get the path to the comics directory"""
@@ -249,15 +252,36 @@ class ComicReader(QMainWindow):
         decline_layout.addWidget(self.decline_ratio_slider)
         cfs_edit_layout.addLayout(decline_layout)
 
+        # Parameter preset buttons
+        preset_buttons_layout = QHBoxLayout()
+        preset_buttons_layout.setContentsMargins(0, 10, 0, 0)
+
+        slow_btn = QPushButton(self.i18n.tr("S"))
+        slow_btn.clicked.connect(lambda: self.set_slider(100, 0, 0.5, 0.35))
+        preset_buttons_layout.addWidget(slow_btn)
+
+        medium_btn = QPushButton(self.i18n.tr("M"))
+        medium_btn.clicked.connect(lambda: self.set_slider(100, 0, 1.0, 0.45))
+        preset_buttons_layout.addWidget(medium_btn)
+
+        fast_btn = QPushButton(self.i18n.tr("F"))
+        fast_btn.clicked.connect(lambda: self.set_slider(100, 0, 2.0, 0.5))
+        preset_buttons_layout.addWidget(fast_btn)
+
+        top_btn = QPushButton(self.i18n.tr("T"))
+        top_btn.clicked.connect(lambda: self.set_slider(100, 45, 1.0, 0.65))
+        preset_buttons_layout.addWidget(top_btn)
+
+        bottom_btn = QPushButton(self.i18n.tr("B"))
+        bottom_btn.clicked.connect(lambda: self.set_slider(55, 0, 0.8, 0.45))
+        preset_buttons_layout.addWidget(bottom_btn)
+
+        cfs_edit_layout.addLayout(preset_buttons_layout)
+
         # Save button
         self.save_cfs_button = QPushButton(self.i18n.tr("Save (Ctrl+S)"))
         self.save_cfs_button.clicked.connect(self.save_cfs_changes)
         cfs_edit_layout.addWidget(self.save_cfs_button)
-        self.save_cfs_button.setStyleSheet("""
-            QPushButton {
-                margin-top: 10px;
-            }
-        """)
 
         # Delete settings button
         self.delete_cfs_button = QPushButton(self.i18n.tr("Delete (Delete)"))
@@ -279,6 +303,20 @@ class ComicReader(QMainWindow):
         delete_shortcut.activated.connect(self.delete_cfs_setting)
 
         self.setFocus()
+
+    def _clamp(self, value, min_val, max_val):
+        return max(min_val, min(value, max_val))
+
+    def set_slider(self, max_val=None, min_val=None, freq=None, decline_ratio=None):
+        """Set slider value"""
+        if max_val is not None:
+            self.max_slider.setValue(self._clamp(int(max_val), 0, 100))
+        if min_val is not None:
+            self.min_slider.setValue(self._clamp(int(min_val), 0, 100))
+        if freq is not None:
+            self.freq_slider.setValue(self._clamp(int(freq * 100), 10, 250))
+        if decline_ratio is not None:
+            self.decline_ratio_slider.setValue(self._clamp(int(decline_ratio * 100), 30, 70))
 
     def filter_comics_list(self, text):
         """Filter the comic list based on the search box content"""
@@ -465,6 +503,8 @@ class ComicReader(QMainWindow):
                 self.cfs_display_text.setText(cfs_text)
 
                 self.plot_sawtooth_wave(updated_params)
+                if self.serial_controller:
+                    self.serial_controller.new_page(current_image_name)
             else:
                 raise Exception(self.i18n.tr("Unable to save CFS parameters to file"))
         except Exception as e:
@@ -496,6 +536,7 @@ class ComicReader(QMainWindow):
                 self.freq_slider.setValue(100)
                 self.decline_ratio_slider.setValue(50)
                 self.plot_sawtooth_wave()
+                self.emergency_stop()
 
         self.setFocus()
 
