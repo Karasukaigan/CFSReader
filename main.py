@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import subprocess
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QListWidget, QLabel, QPushButton, QWidget, QFileDialog, QMessageBox, QSlider, QLineEdit, QTextEdit
-from PySide6.QtGui import QPixmap, QIcon, QKeySequence, QShortcut
+from PySide6.QtGui import QPixmap, QIcon, QKeySequence, QShortcut, QMovie
 from PySide6.QtCore import Qt
 from dotenv import load_dotenv, get_key, set_key
 import random
@@ -24,7 +24,7 @@ class ComicReader(QMainWindow):
 
         self.i18n = I18nManager()  # i18n
 
-        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.1")
+        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.2")
         self.setGeometry(100, 100, 1000, 600)
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "img", "logo.png")
         if os.path.exists(icon_path):
@@ -377,7 +377,7 @@ class ComicReader(QMainWindow):
             self.serial_controller.load_cfs(cfs_path)
 
         self.current_comic_path = os.path.join(self.comics_dir, comic_name)
-        image_extensions = ['.jpg', '.jpeg', '.png', '.webp']
+        image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
         self.image_files = []
         for file in sorted(os.listdir(self.current_comic_path)):
             file_ext = Path(file).suffix.lower()
@@ -387,7 +387,7 @@ class ComicReader(QMainWindow):
         if self.image_files:
             self.current_image_index = 0
             self.show_current_image()
-            self.prev_button.setEnabled(True)
+            self.prev_button.setEnabled(False)
             self.next_button.setEnabled(len(self.image_files) > 1)
         else:
             self.image_label.clear()
@@ -545,22 +545,36 @@ class ComicReader(QMainWindow):
         if 0 <= self.current_image_index < len(self.image_files):
             image_path = self.image_files[self.current_image_index]
             image_name = os.path.basename(image_path)
-            pixmap = QPixmap(image_path)
+            file_ext = Path(image_path).suffix.lower()
+
+            if file_ext == '.gif':
+                pixmap = QPixmap(image_path)
+                original_size = pixmap.size()
+                movie = QMovie(image_path)
+                label_size = self.image_label.size()
+                scaled_size = original_size.scaled(
+                    label_size.width() - 20,
+                    label_size.height() - 20,
+                    Qt.KeepAspectRatio
+                )
+                movie.setScaledSize(scaled_size)
+                self.image_label.setMovie(movie)
+                movie.start()
+            else:
+                pixmap = QPixmap(image_path)
+                label_size = self.image_label.size()
+                scaled_pixmap = pixmap.scaled(
+                    label_size.width() - 20,
+                    label_size.height() - 20,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled_pixmap)
 
             if self.serial_controller:
                 self.serial_controller.new_page(image_name)
 
-            label_size = self.image_label.size()
-            scaled_pixmap = pixmap.scaled(
-                label_size.width() - 20,
-                label_size.height() - 20,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            )
-            
-            self.image_label.setPixmap(scaled_pixmap)
             self.setWindowTitle(f"{self.i18n.tr('CFSReader')} - {os.path.basename(image_path)}")
-
             self.update_page_info()
             self.update_cfs_display()
     
@@ -569,6 +583,7 @@ class ComicReader(QMainWindow):
         if self.is_slider_changing:
             return
         if 0 <= value < len(self.image_files):
+            self._clear_qmovie()
             self.current_image_index = value
             self.show_current_image()
             self.update_buttons_state()
@@ -592,6 +607,7 @@ class ComicReader(QMainWindow):
     def previous_image(self):
         """Display the previous image"""
         if self.current_image_index > 0:
+            self._clear_qmovie()
             self.current_image_index -= 1
             self.is_slider_changing = True
             self.page_slider.setValue(self.current_image_index)
@@ -602,12 +618,20 @@ class ComicReader(QMainWindow):
     def next_image(self):
         """Display the next image"""
         if self.current_image_index < len(self.image_files) - 1:
+            self._clear_qmovie()
             self.current_image_index += 1
             self.is_slider_changing = True
             self.page_slider.setValue(self.current_image_index)
             self.is_slider_changing = False
             self.show_current_image()
             self.update_buttons_state()
+
+    def _clear_qmovie(self):
+        if hasattr(self.image_label, 'movie'):
+            old_movie = self.image_label.movie()
+            if old_movie:
+                old_movie.stop()
+                self.image_label.setMovie(None)
 
     def emergency_stop(self):
         """Emergency stop function"""
