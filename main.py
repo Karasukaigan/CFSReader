@@ -11,9 +11,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
 
-from src.menu_bar import CustomMenuBar
 from src.serial_controller import SerialController
 from src.i18n import I18nManager
+from src.menu_bar import CustomMenuBar
+from src.comics_list import CustomComicsList
 
 class ComicReader(QMainWindow):
     def __init__(self):
@@ -24,7 +25,7 @@ class ComicReader(QMainWindow):
 
         self.i18n = I18nManager()  # i18n
 
-        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.2")
+        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.3")
         self.setGeometry(100, 100, 1000, 600)
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "img", "logo.png")
         if os.path.exists(icon_path):
@@ -84,6 +85,10 @@ class ComicReader(QMainWindow):
             set_key(env_path, "SORT_ORDER", "name")
         if not get_key(env_path, 'EXPERT_MODE'):
             set_key(env_path, "EXPERT_MODE", "false")
+        if not get_key(env_path, 'ENABLE_THUMB'):
+            set_key(env_path, "ENABLE_THUMB", "false")
+        if not get_key(env_path, 'THUMB_SIZE'):
+            set_key(env_path, "THUMB_SIZE", "100,140")
 
     def get_comics_directory(self):
         """Get the path to the comics directory"""
@@ -121,7 +126,7 @@ class ComicReader(QMainWindow):
         left_panel.addWidget(self.search_box)
 
         # Comic list
-        self.comics_list = QListWidget()
+        self.comics_list = CustomComicsList(comics_dir=self.comics_dir, i18n=self.i18n)
         self.comics_list.itemClicked.connect(self.on_comic_selected)
         left_panel.addWidget(self.comics_list)
 
@@ -329,6 +334,7 @@ class ComicReader(QMainWindow):
             self.comics_list.clear()
             for comic in self.all_comics:
                 self.comics_list.addItem(comic)
+        self.comics_list.load_initial_thumbnails()
     
     def load_comics_list(self):
         """Load the comic list"""
@@ -360,6 +366,7 @@ class ComicReader(QMainWindow):
         self.all_comics = sorted_items
         for item in sorted_items:
             self.comics_list.addItem(item)
+        self.comics_list.load_initial_thumbnails()
 
     def on_comic_selected(self, item):
         """Comic selection event"""
@@ -691,6 +698,7 @@ class ComicReader(QMainWindow):
                 QMessageBox.warning(self, self.i18n.tr("Error"), f"{self.i18n.tr('Failed to export CFS file')}: {str(e)}")
 
 def main():
+    os.environ['QT_IMAGEIO_MAXALLOC'] = '512'
     app = QApplication(sys.argv)
     app.setApplicationName("CFSReader")
     reader = ComicReader()

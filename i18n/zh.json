@@ -52,5 +52,10 @@
     "M": "中",
     "F": "快",
     "T": "上",
-    "B": "下"
+    "B": "下",
+    "Copy Name": "复制名称",
+    "Open Folder": "打开文件夹",
+    "Open Thumbnails Directory": "打开缩略图目录",
+    "Thumbnail Size": "缩略图尺寸",
+    "No Thumbnail": "无缩略图"
 }

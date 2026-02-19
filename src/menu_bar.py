@@ -42,6 +42,10 @@ class CustomMenuBar(QMenuBar):
         export_cfs_action.triggered.connect(self.export_cfs_file)
         file_menu.addAction(export_cfs_action)
 
+        open_thumbnails_action = QAction(self.i18n.tr("Open Thumbnails Directory"), self)
+        open_thumbnails_action.triggered.connect(self.open_thumbnails_directory)
+        file_menu.addAction(open_thumbnails_action)
+
         preferences_action = QAction(self.i18n.tr("Preferences"), self)
         preferences_action.triggered.connect(self.open_preferences)
         file_menu.addAction(preferences_action)
@@ -103,6 +107,13 @@ class CustomMenuBar(QMenuBar):
         if not os.path.exists(cfs_path):
             os.makedirs(cfs_path, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.abspath(cfs_path)))
+
+    def open_thumbnails_directory(self):
+        """Open thumbnails directory"""
+        thumbnails_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources", "thumbnails")
+        if not os.path.exists(thumbnails_path):
+            os.makedirs(thumbnails_path, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.abspath(thumbnails_path)))
     
     def toggle_cfs_editor(self):
         """Show/hide CFS editor"""

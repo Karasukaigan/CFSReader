@@ -52,5 +52,10 @@
     "M": "中",
     "F": "速",
     "T": "上",
-    "B": "下"
+    "B": "下",
+    "Copy Name": "名前をコピー",
+    "Open Folder": "フォルダを開く",
+    "Open Thumbnails Directory": "サムネイルディレクトリを開く",
+    "Thumbnail Size": "サムネイルサイズ",
+    "No Thumbnail": "サムネイルなし"
 }

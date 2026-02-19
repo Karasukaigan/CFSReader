@@ -2,7 +2,8 @@
 import os
 import serial.tools.list_ports
 from pathlib import Path
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QFileDialog, QMessageBox, QFormLayout, QDialog, QRadioButton, QButtonGroup, QComboBox
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QFileDialog, QMessageBox, QFormLayout, QDialog, QRadioButton, QButtonGroup, QComboBox, QWidget
+from PySide6.QtCore import Qt
 from dotenv import get_key, set_key
 
 class SettingsWindow(QDialog):
@@ -12,7 +13,7 @@ class SettingsWindow(QDialog):
         self.i18n = i18n
         self.setWindowTitle(self.i18n.tr("Preferences"))
         self.setModal(True)
-        self.resize(500, 200)
+        self.resize(700, 200)
         self.init_ui()
     
     def init_ui(self):
@@ -31,18 +32,51 @@ class SettingsWindow(QDialog):
         form_layout.addRow(self.i18n.tr("Comics Directory"), dir_layout)
         
         # Sort order setting
-        self.sort_order_group = QVBoxLayout()
+        self.sort_order_widget = QWidget()
+        self.sort_order_layout = QHBoxLayout(self.sort_order_widget)
+
         self.name_radio = QRadioButton(self.i18n.tr("Sort by Name"))
         self.time_radio = QRadioButton(self.i18n.tr("Sort from Newest to Oldest"))
         self.random_radio = QRadioButton(self.i18n.tr("Random Sort"))
+
         self.sort_button_group = QButtonGroup()
         self.sort_button_group.addButton(self.name_radio, 0)
         self.sort_button_group.addButton(self.time_radio, 1)
         self.sort_button_group.addButton(self.random_radio, 2)
-        self.sort_order_group.addWidget(self.name_radio)
-        self.sort_order_group.addWidget(self.time_radio)
-        self.sort_order_group.addWidget(self.random_radio)
-        form_layout.addRow(self.i18n.tr("Default Sort Order"), self.sort_order_group)
+
+        self.sort_order_layout.addWidget(self.name_radio)
+        self.sort_order_layout.addWidget(self.time_radio)
+        self.sort_order_layout.addWidget(self.random_radio)
+
+        self.sort_order_widget.setLayout(self.sort_order_layout)
+        self.sort_order_layout.setAlignment(Qt.AlignVCenter)
+
+        form_layout.addRow(self.i18n.tr("Default Sort Order"), self.sort_order_widget)
+
+        # Thumbnail size setting
+        self.thumb_size_widget = QWidget()
+        self.thumb_size_layout = QHBoxLayout(self.thumb_size_widget)
+
+        self.no_thumb_radio = QRadioButton(self.i18n.tr("No Thumbnail"))
+        self.ratio_2_3_radio = QRadioButton("2:3")
+        self.ratio_3_2_radio = QRadioButton("3:2")
+        self.ratio_1_1_radio = QRadioButton("1:1")
+
+        self.thumb_button_group = QButtonGroup()
+        self.thumb_button_group.addButton(self.no_thumb_radio, 0)
+        self.thumb_button_group.addButton(self.ratio_2_3_radio, 1)
+        self.thumb_button_group.addButton(self.ratio_3_2_radio, 2)
+        self.thumb_button_group.addButton(self.ratio_1_1_radio, 3)
+
+        self.thumb_size_layout.addWidget(self.no_thumb_radio)
+        self.thumb_size_layout.addWidget(self.ratio_2_3_radio)
+        self.thumb_size_layout.addWidget(self.ratio_3_2_radio)
+        self.thumb_size_layout.addWidget(self.ratio_1_1_radio)
+
+        self.thumb_size_widget.setLayout(self.thumb_size_layout)
+        self.thumb_size_layout.setAlignment(Qt.AlignVCenter)
+
+        form_layout.addRow(self.i18n.tr("Thumbnail Size"), self.thumb_size_widget)
 
         # Serial port device setting
         self.serial_port_combo = QComboBox()
@@ -91,6 +125,19 @@ class SettingsWindow(QDialog):
         else:
             self.name_radio.setChecked(True)
 
+        # Load thumbnail size setting
+        enable_thumb = get_key(".env", "ENABLE_THUMB") or "false"
+        thumb_size = get_key(".env", "THUMB_SIZE") or "100,150"
+
+        if enable_thumb == "false":
+            self.no_thumb_radio.setChecked(True)
+        elif thumb_size == "100,150":
+            self.ratio_2_3_radio.setChecked(True)
+        elif thumb_size == "100,67":
+            self.ratio_3_2_radio.setChecked(True)
+        elif thumb_size == "100,100":
+            self.ratio_1_1_radio.setChecked(True)
+
         # Load serial port device setting
         self.refresh_serial_ports()
         self.serial_port_combo.insertItem(0, "", "")  # Add empty option
@@ -135,6 +182,21 @@ class SettingsWindow(QDialog):
         else:
             sort_order = "name"
 
+        # Get thumbnail size
+        selected_thumb_id = self.thumb_button_group.checkedId()
+        if selected_thumb_id == 0:
+            enable_thumb = "false"
+            thumb_size = "100,150"
+        elif selected_thumb_id == 1:
+            enable_thumb = "true"
+            thumb_size = "100,150"
+        elif selected_thumb_id == 2:
+            enable_thumb = "true"
+            thumb_size = "150,100"
+        elif selected_thumb_id == 3:
+            enable_thumb = "true"
+            thumb_size = "100,100"
+
         # Get serial port device
         selected_port = self.serial_port_combo.currentText()
 
@@ -148,6 +210,8 @@ class SettingsWindow(QDialog):
                 env_path.touch()
             set_key(env_path, "COMICS_DIR", selected_dir)
             set_key(env_path, "SORT_ORDER", sort_order)
+            set_key(env_path, "ENABLE_THUMB", enable_thumb)
+            set_key(env_path, "THUMB_SIZE", thumb_size)
             set_key(env_path, "SERIAL_PORT", selected_port)
             set_key(env_path, "DEF_LANG", selected_language)
             
