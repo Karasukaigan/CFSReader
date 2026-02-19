@@ -5,7 +5,7 @@
 CFSReader (Comic Funscript Reader) is a reader that brings comics to life.
 It stores motion parameters for each comic page in a `.cfs` file and drives an OSR device through a USB serial connection.
 
-![screenshot_1](./resources/img/screenshot_1.png "screenshot_1")
+![screenshot_3](./resources/img/screenshot_3.png "screenshot_3")
 
 ## CFS File Format
 
