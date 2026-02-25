@@ -57,5 +57,7 @@
     "Open Folder": "打开文件夹",
     "Open Thumbnails Directory": "打开缩略图目录",
     "Thumbnail Size": "缩略图尺寸",
-    "No Thumbnail": "无缩略图"
+    "No Thumbnail": "无缩略图",
+    "Export Heatmap": "导出热力图",
+    "Failed to export heatmap": "导出热力图失败"
 }

@@ -42,6 +42,10 @@ class CustomMenuBar(QMenuBar):
         export_cfs_action.triggered.connect(self.export_cfs_file)
         file_menu.addAction(export_cfs_action)
 
+        export_heatmap_action = QAction(self.i18n.tr("Export Heatmap"), self)
+        export_heatmap_action.triggered.connect(self.export_heatmap)
+        file_menu.addAction(export_heatmap_action)
+
         open_thumbnails_action = QAction(self.i18n.tr("Open Thumbnails Directory"), self)
         open_thumbnails_action.triggered.connect(self.open_thumbnails_directory)
         file_menu.addAction(open_thumbnails_action)
@@ -143,6 +147,11 @@ class CustomMenuBar(QMenuBar):
         """Export the current comic's CFS file"""
         if hasattr(self.parent, 'export_current_cfs'):
             self.parent.export_current_cfs()
+
+    def export_heatmap(self):
+        """Export heatmap"""
+        if hasattr(self.parent, 'export_heatmap'):
+            self.parent.export_heatmap()
 
     def show_donation_dialog(self):
         msg_box = QMessageBox(self)

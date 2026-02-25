@@ -25,7 +25,7 @@ class ComicReader(QMainWindow):
 
         self.i18n = I18nManager()  # i18n
 
-        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.3")
+        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.4")
         self.setGeometry(100, 100, 1000, 600)
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "img", "logo.png")
         if os.path.exists(icon_path):
@@ -283,7 +283,7 @@ class ComicReader(QMainWindow):
 
         cfs_edit_layout.addLayout(preset_buttons_layout)
 
-        # Save button
+        # Save settings button
         self.save_cfs_button = QPushButton(self.i18n.tr("Save (Ctrl+S)"))
         self.save_cfs_button.clicked.connect(self.save_cfs_changes)
         cfs_edit_layout.addWidget(self.save_cfs_button)
@@ -306,6 +306,11 @@ class ComicReader(QMainWindow):
         save_shortcut.activated.connect(self.save_cfs_changes)
         delete_shortcut = QShortcut(QKeySequence("Delete"), self)
         delete_shortcut.activated.connect(self.delete_cfs_setting)
+        QShortcut(QKeySequence("1"), self).activated.connect(slow_btn.click)
+        QShortcut(QKeySequence("2"), self).activated.connect(medium_btn.click)
+        QShortcut(QKeySequence("3"), self).activated.connect(fast_btn.click)
+        QShortcut(QKeySequence("4"), self).activated.connect(top_btn.click)
+        QShortcut(QKeySequence("5"), self).activated.connect(bottom_btn.click)
 
         self.setFocus()
 
@@ -322,6 +327,7 @@ class ComicReader(QMainWindow):
             self.freq_slider.setValue(self._clamp(int(freq * 100), 10, 250))
         if decline_ratio is not None:
             self.decline_ratio_slider.setValue(self._clamp(int(decline_ratio * 100), 30, 70))
+        self.setFocus()
 
     def filter_comics_list(self, text):
         """Filter the comic list based on the search box content"""
@@ -696,6 +702,22 @@ class ComicReader(QMainWindow):
                     raise Exception(self.i18n.tr("Unable to save CFS file"))
             except Exception as e:
                 QMessageBox.warning(self, self.i18n.tr("Error"), f"{self.i18n.tr('Failed to export CFS file')}: {str(e)}")
+
+    def export_heatmap(self):
+        """Export the heatmap image of the current comic"""
+        if not self.current_comic_path or not self.serial_controller:
+            return
+        comic_name = os.path.basename(self.current_comic_path)
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.i18n.tr("Export Heatmap"),
+            f"{comic_name}.png",
+        )
+        if file_path:
+            try:
+                self.serial_controller.get_heatmap(self.current_comic_path, file_path)
+            except Exception as e:
+                QMessageBox.warning(self, self.i18n.tr("Error"), f"{self.i18n.tr('Failed to export heatmap')}: {str(e)}")
 
 def main():
     os.environ['QT_IMAGEIO_MAXALLOC'] = '512'

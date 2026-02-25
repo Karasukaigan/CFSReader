@@ -57,5 +57,7 @@
     "Open Folder": "フォルダを開く",
     "Open Thumbnails Directory": "サムネイルディレクトリを開く",
     "Thumbnail Size": "サムネイルサイズ",
-    "No Thumbnail": "サムネイルなし"
+    "No Thumbnail": "サムネイルなし",
+    "Export Heatmap": "ヒートマップをエクスポート",
+    "Failed to export heatmap": "ヒートマップのエクスポートに失敗しました"
 }

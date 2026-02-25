@@ -5,6 +5,10 @@ import json
 import serial
 import threading
 import time
+from pathlib import Path
+import copy
+
+from src.heatmap import draw_sawtooth_waves
 
 class SerialController:
     def __init__(self, port=None, baudrate=115200, timeout=5):
@@ -31,7 +35,7 @@ class SerialController:
             return False
         baudrate = baudrate or self.baudrate
         try:
-            self.ser = serial.Serial(port, baudrate=baudrate, timeout=self.timeout)
+            self.ser = serial.Serial(port, baudrate=baudrate, timeout=self.timeout, write_timeout=1)
             self.port = port
             self.baudrate = baudrate
             self.is_connected = True
@@ -62,7 +66,7 @@ class SerialController:
             return False
         try:
             self.ser.write(data.encode('utf-8'))
-            # print(f"[Sent]{self.port}: {data.strip()}")
+            print(f"[Sent]{self.port}: {data.strip()}")
             return True
         except Exception as e:
             print(f"Error occurred while sending data: {e}")
@@ -190,6 +194,18 @@ class SerialController:
             self.decline_ratio = self.current_cfs[page]['decline_ratio']
             self.start_loop_send()
 
+    def get_heatmap(self, comic_path, output_file=None):
+        """Generate heatmap"""
+        cfs_all = copy.deepcopy(self.current_cfs)
+        image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
+        for file in sorted(os.listdir(comic_path)):
+            file_ext = Path(file).suffix.lower()
+            if file_ext in image_extensions:
+                if file not in cfs_all:
+                    cfs_all[file] = {}
+        fig = draw_sawtooth_waves(cfs_all, output_file)
+        return fig
+         
 if __name__ == "__main__":
     controller = SerialController()
     controller.port = controller.get_serial_port_from_env()
