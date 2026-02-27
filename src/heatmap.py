@@ -1,173 +1,219 @@
 import json
 from natsort import natsorted
 import os
+import math
+from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
 
-def calculate_color_from_freq(freq, min_freq=0.3, max_freq=2.5):
+def calculate_color_from_freq(freq, min_freq=0.5, max_freq=2.5):
     """Calculate color based on frequency"""
-    if freq <= min_freq:
-        color = (0.5, 0.8, 1)  # Light blue
-    elif freq >= max_freq:
-        color = (1, 0, 0)  # Red
+    t = (freq - min_freq) / (max_freq - min_freq)
+    t = max(0.0, min(1.0, t))
+    start_color = (0.4, 0.8, 1.0)  # Light blue
+    end_color   = (1.0, 0.0, 0.0)  # Red
+    r = start_color[0] + t * (end_color[0] - start_color[0])
+    g = start_color[1] + t * (end_color[1] - start_color[1])
+    b = start_color[2] + t * (end_color[2] - start_color[2])
+    return (r, g, b)
+
+def generate_sawtooth_points(start_pos=None, start_trend=-1, max_val=50, min_val=50, freq=1.0, decline_ratio=0.5, total_time=5000):
+    """Generate sawtooth wave curve key points"""
+    if start_pos is None:
+        start_pos = max_val
+    if min_val > max_val:
+        min_val, max_val = max_val, min_val
+    if max_val == min_val:
+        return {
+            "x": [0, round(total_time)],
+            "y": [start_pos, start_pos]
+        }
+
+    T = 1000.0 / freq  # Period
+    decline_time = T * decline_ratio
+    rise_time = T - decline_time
+
+    def value_at_phase(phase):
+        """Calculate y value based on phase"""
+        if phase < 0 or phase >= T:
+            phase = phase % T
+        if decline_time == 0:
+            if phase == 0:
+                return max_val
+            else:
+                return min_val + (max_val - min_val) * (phase / rise_time)
+        elif rise_time == 0:
+            if phase < decline_time:
+                return max_val - (max_val - min_val) * (phase / decline_time)
+            elif phase == decline_time:
+                return min_val
+            else:  # phase > decline_time
+                return max_val
+        else:
+            if phase < decline_time:
+                return max_val - (max_val - min_val) * (phase / decline_time)
+            else:
+                return min_val + (max_val - min_val) * ((phase - decline_time) / rise_time)
+
+    def find_initial_phase():
+        """Calculate initial phase offset"""
+        if max_val == min_val:
+            return 0.0
+        if decline_time == 0:
+            if start_pos == max_val:
+                return 0.0
+            else:
+                return (start_pos - min_val) / (max_val - min_val) * rise_time
+        if rise_time == 0:
+            if start_pos == min_val:
+                return decline_time
+            else:
+                return (max_val - start_pos) / (max_val - min_val) * decline_time
+        t_d = (max_val - start_pos) / (max_val - min_val) * decline_time
+        t_r = decline_time + (start_pos - min_val) / (max_val - min_val) * rise_time
+        if start_trend == -1:
+            if 0 <= t_d <= decline_time:
+                return t_d
+            if start_pos == max_val:
+                return 0.0
+            if start_pos == min_val:
+                return decline_time
+            return t_d if t_d is not None else 0.0
+        else:
+            if decline_time <= t_r <= T:
+                return t_r
+            if start_pos == min_val:
+                return decline_time
+            if start_pos == max_val:
+                return 0.0
+            return t_r if t_r is not None else 0.0
+
+    t_mod0 = find_initial_phase()
+
+    events = []  # All event points
+
+    # Max events
+    k_min = math.ceil(t_mod0 / T)
+    k_max = math.floor((total_time + t_mod0) / T)
+    for k in range(k_min, k_max + 1):
+        t = k * T - t_mod0
+        if 0 < t <= total_time:
+            events.append((t, max_val))
+
+    # Min events
+    k_min = math.ceil((t_mod0 - decline_time) / T)
+    k_max = math.floor((total_time + t_mod0 - decline_time) / T)
+    for k in range(k_min, k_max + 1):
+        t = k * T + decline_time - t_mod0
+        if 0 < t <= total_time:
+            events.append((t, min_val))
+
+    events.append((0.0, start_pos))  # Add start point
+    end_phase = (t_mod0 + total_time) % T
+    end_y = value_at_phase(end_phase)
+    events.append((total_time, end_y))  # Add end point
+
+    # Sort events
+    if decline_ratio == 0:
+        events.sort(key=lambda p: (p[0], -p[1]))
+    elif decline_ratio == 1:
+        events.sort(key=lambda p: (p[0], p[1]))
     else:
-        # Gradient from light blue to red
-        freq_ratio = (freq - min_freq) / (max_freq - min_freq)
-        r = 0.5 + 0.5 * freq_ratio  # Red channel
-        g = 0.8 - 0.8 * freq_ratio  # Green channel
-        b = 1 - freq_ratio  # Blue channel
-        color = (r, g, b)
-    return color
+        events.sort(key=lambda p: p[0])
 
-def draw_single_sawtooth_segment(ax, data, key, start_x, end_x, seg_w, min_freq, max_freq, height):
-    """Draw a single sawtooth segment"""
-    try:
-        params = data[key]
-        
-        # Check if necessary keys are present
-        if not params or 'max' not in params or 'min' not in params or 'freq' not in params or 'decline_ratio' not in params:
-            rect = plt.Rectangle((start_x, 0), seg_w, height, facecolor='black', edgecolor='none')
-            ax.add_patch(rect)
-            return
-            
-        max_val = params['max']
-        min_val = params['min']
-        freq = params['freq']
-        decline_ratio = params['decline_ratio']
+    # Remove duplicates
+    unique_events = []
+    for t, y in events:
+        if unique_events and unique_events[-1][0] == t and unique_events[-1][1] == y:
+            continue
+        unique_events.append((t, y))
 
-        # Calculate color
-        color = calculate_color_from_freq(freq, min_freq, max_freq)
+    # Convert to integer milliseconds
+    x = [round(t) for t, _ in unique_events]
+    y = [round(y, 2) for _, y in unique_events]
 
-        if decline_ratio <= 0:
-            decline_ratio = 1e-6
-        elif decline_ratio >= 1:
-            decline_ratio = 1 - 1e-6
+    return {"x": x, "y": y}
 
-        total_cycles = freq * 3.0  # Total cycles in 3 seconds
-        key_points_x = []  # Key point x coordinates
-        key_points_y = []  # Key point y coordinates
-        
-        # Add starting point
-        key_points_x.append(start_x)
-        y_max = (max_val / 100.0) * height
-        y_min = (min_val / 100.0) * height
-        key_points_y.append(y_max)
-        
-        # Generate key turning points for sawtooth wave
-        current_x = start_x
-        cycle_num = 0
-        while current_x < end_x and cycle_num <= total_cycles:
-            cycle_start_x = start_x + (cycle_num * seg_w) / total_cycles
-            cycle_end_x = start_x + ((cycle_num + 1) * seg_w) / total_cycles
-            
-            if cycle_start_x >= end_x:
-                break
-            
-            # If not the first cycle, add cycle start point (maximum value)
-            if cycle_num > 0 and cycle_start_x > current_x and cycle_start_x < end_x:
-                key_points_x.append(cycle_start_x)
-                key_points_y.append(y_max)
-            
-            # Decline point (minimum value)
-            decline_x = cycle_start_x + decline_ratio * (cycle_end_x - cycle_start_x)
-            if decline_x > current_x and decline_x < end_x:
-                key_points_x.append(decline_x)
-                key_points_y.append(y_min)
-            
-            # If not the last cycle, add cycle end point (maximum value)
-            if cycle_end_x < end_x:
-                key_points_x.append(cycle_end_x)
-                key_points_y.append(y_max)
-            
-            current_x = cycle_end_x
-            cycle_num += 1
-            
-            # Prevent infinite loop
-            if cycle_num > total_cycles + 1:
-                break
-        
-        # Calculate actual y value at end_x position
-        actual_rel_pos = (end_x - start_x) / seg_w  # Actual relative position
-        actual_total_phase = actual_rel_pos * total_cycles
-        current_cycle_phase = actual_total_phase - int(actual_total_phase)
-        
-        if current_cycle_phase < decline_ratio:
-            # Decline phase
-            decline_progress = current_cycle_phase / decline_ratio
-            current_value = max_val - (max_val - min_val) * decline_progress
+def merge_curve_points(segments):
+    """Merge multiple curve segments into one continuous key point sequence"""
+    if not segments:
+        return {"x": [], "y": []}
+    merged_x = []
+    merged_y = []
+    for i, seg in enumerate(segments):
+        x_vals = seg["x"]
+        y_vals = seg["y"]
+        if i == 0:
+            merged_x.extend(x_vals)
+            merged_y.extend(y_vals)
         else:
-            # Rise phase
-            rise_start_phase = decline_ratio
-            rise_progress = (current_cycle_phase - rise_start_phase) / (1 - decline_ratio)
-            current_value = min_val + (max_val - min_val) * rise_progress
-        
-        y_end = (current_value / 100.0) * height
-        
-        # Replace or add end point
-        if key_points_x and abs(key_points_x[-1] - end_x) < 1e-6:
-            key_points_y[-1] = y_end
-        else:
-            key_points_x.append(end_x)
-            key_points_y.append(y_end)
+            if len(x_vals) <= 1:
+                continue
+            offset = merged_x[-1]
+            for x, y in zip(x_vals[1:], y_vals[1:]):
+                merged_x.append(x + offset)
+                merged_y.append(y)
+    return {"x": merged_x, "y": merged_y}
 
-        # Remove duplicates
-        points = list(zip(key_points_x, key_points_y))
-        unique_points = []
-        for point in points:
-            if not unique_points or abs(point[0] - unique_points[-1][0]) > 1e-6:
-                unique_points.append(point)
-        
-        if len(unique_points) > 1:
-            unique_x, unique_y = zip(*unique_points)
-            ax.plot(unique_x, unique_y, color=color, linewidth=1, antialiased=True)
-    except (KeyError, TypeError, ValueError) as e:
-        print(f"Error processing key {key}: {e}")
-        rect = plt.Rectangle((start_x, 0), seg_w, height, facecolor='black', edgecolor='none')
-        ax.add_patch(rect)
+def generate_curve_image(points, width=2000, height=100, bg_color=(0, 0, 0, 1), dpi=100):
+    """Generate line chart image using matplotlib with anti-aliasing"""
+    x_vals = points["x"]
+    y_vals = points["y"]
 
-def draw_sawtooth_waves(data, output_file=None, dpi=100):
+    if not x_vals or not y_vals:
+        from PIL import Image
+        return Image.new("RGBA", (width, height), tuple(int(c * 255) for c in bg_color))
+
+    fig_width_inch = width / dpi
+    fig_height_inch = height / dpi
+    fig, ax = plt.subplots(figsize=(fig_width_inch, fig_height_inch), dpi=dpi)
+    fig.patch.set_facecolor(bg_color)
+    ax.set_facecolor(bg_color)
+    ax.axis('off')
+    ax.set_xlim(min(x_vals), max(x_vals))
+    ax.set_ylim(0, 100)
+
+    for i in range(len(x_vals) - 1):
+        x1, y1 = x_vals[i], y_vals[i]
+        x2, y2 = x_vals[i+1], y_vals[i+1]
+        dt = abs(x2 - x1)
+        freq = 10.0 if dt == 0 else 1000.0 / dt
+        r, g, b = calculate_color_from_freq(freq / 2)
+        color = (r, g, b, 1.0)
+        ax.plot([x1, x2], [y1, y2], color=color, linewidth=1, antialiased=True)
+
+    buf = BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0, facecolor=bg_color, edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+    from PIL import Image
+    img = Image.open(buf).convert("RGBA")
+    if img.size != (width, height):
+        img = img.resize((width, height), Image.LANCZOS)
+    return img
+
+def draw_sawtooth_waves(data, output_file=None):
     """Draw sawtooth wave image based on input dictionary"""
     data = sort_dict_keys_naturally(data)
-
-    WIDTH, HEIGHT = 2000, 100  # Chart width and height, not equal to actual output image dimensions
-    figsize = (WIDTH/dpi, HEIGHT/dpi)
-    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    ax.set_xlim(0, WIDTH)
-    ax.set_ylim(0, HEIGHT)
-    ax.axis('off')
-    
-    keys = list(data.keys())
-    num_keys = len(keys)
-    if num_keys == 0:
-        ax.set_facecolor('black')
-        if output_file:
-            save_as_png(fig, output_file)
-        return fig
-
-    base_w = WIDTH // num_keys  # Base width per segment
-    remainder = WIDTH % num_keys  # Remaining width
-    MIN_FREQ = 0.3  # Minimum frequency
-    MAX_FREQ = 2.5  # Maximum frequency
-
-    start_x = 0
-    for i, key in enumerate(keys):
-        seg_w = base_w + 1 if i < remainder else base_w  # Current segment width
-        end_x = start_x + seg_w
-        draw_single_sawtooth_segment(ax, data, key, start_x, end_x, seg_w, MIN_FREQ, MAX_FREQ, HEIGHT)
-        start_x = end_x
-
-    ax.set_facecolor('black')
-    if output_file:
-        save_as_png(fig, output_file)
+    segments = []
+    segment_duration = 3000
+    current_pos = 50
+    for key, value in data.items():
+        if not value:
+            segments.append({"x": [0, segment_duration], "y": [current_pos, current_pos]})
+        else:
+            points = generate_sawtooth_points(start_pos=current_pos, max_val=value["max"], min_val=value["min"], freq=value["freq"], decline_ratio=value["decline_ratio"], total_time=segment_duration)
+            segments.append(points)
+            current_pos = points["y"][-1]
+    fig = generate_curve_image(merge_curve_points(segments), 2000, 100)
+    save_as_png(fig, output_file)
     return fig
 
-def save_as_png(fig, filepath):
+def save_as_png(fig, file_path):
     """Save matplotlib figure object as PNG file"""
-    directory = os.path.dirname(filepath)
-    if directory:
-        os.makedirs(directory, exist_ok=True)
-    fig.savefig(filepath, format='png', bbox_inches='tight', pad_inches=0,
-                facecolor='black', edgecolor='none')
-    return filepath
+    os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+    fig.save(file_path, format='PNG')
 
 def sort_dict_keys_naturally(d):
     """Sort dictionary keys in natural order"""
@@ -181,13 +227,5 @@ def read_json_to_dict(file_path):
     except (FileNotFoundError, json.JSONDecodeError, IOError):
         return {}
 
-
 if __name__ == "__main__":
-    for file_path in [
-        'test/test1.cfs',
-        'test/test2.cfs',
-        'test/test3.cfs',
-        'test/test4.cfs',
-    ]:
-        data = read_json_to_dict(file_path)
-        draw_sawtooth_waves(data, output_file=f'./{file_path.split("/")[-1]}.png')
+    pass

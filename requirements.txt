@@ -4,3 +4,4 @@ matplotlib
 numpy
 pyserial
 natsort
+Pillow

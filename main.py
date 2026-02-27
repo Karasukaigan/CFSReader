@@ -25,7 +25,7 @@ class ComicReader(QMainWindow):
 
         self.i18n = I18nManager()  # i18n
 
-        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.4")
+        self.setWindowTitle(f"{self.i18n.tr("CFSReader")} v1.4.5")
         self.setGeometry(100, 100, 1000, 600)
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "img", "logo.png")
         if os.path.exists(icon_path):
